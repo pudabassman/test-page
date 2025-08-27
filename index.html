@@ -15,10 +15,10 @@
       assignUserVisitorId: true,
       oneTimeEcid: true,
       listenToEvents: true,
-      spoofAiAgent: true, //Needs "rt": "x" in invocation_options - ct will be triggered as xhr and not embedded as script
+      // spoofAiAgent: true, //Needs "rt": "x" in invocation_options - ct will be triggered as xhr and not embedded as script
       scrollIntoView: false,
       logDataLayer: true,
-      env: "dev" // dev5 | dev | staging | prod
+      env: "local" // local | dev5 | dev | staging | prod | prodEU
     }
 
     //To mimic ai crawler change the user agent(f12 -> cmd+shift+p -> show network conditions):
@@ -29,38 +29,62 @@
      */
 
     const eventsDictionary = {
-      dev: ["javascript_variable_event", "local_storage_variable_event", "cookies_changed_event", "cheq_response"],
+      local: ["javascript_variable_event", "local_storage_variable_event", "cookies_changed_event", "cheq_response"],
       get dev5() {
-        return this.dev
+        return this.local
+      },
+      get dev() {
+        return this.local
       },
       staging: ["staging-test-event-data-layer", "staging-test-event-local-storage", "staging-test-event-javascript-variable", "staging-test-event-cookie", "cheq_response"],
-      prod: ["prod-test-event-data-layer", "prod-test-event-local-storage", "prod-test-event-javascript-variable", "prod-test-event-cookie", "cheq_response"]
+      prod: ["prod-test-general", "prod-test-event-data-layer", "prod-test-event-local-storage", "prod-test-event-javascript-variable", "prod-test-event-cookie", "cheq_response"],
+      get prodEU() {
+        return this.prod
+      }
     }
 
     const urls = {
+      local: (tagHash) => `http://localhost:8010/i/${tagHash}.js`,
       dev5: (tagHash) => `https://obs.5.dev.cheqzone.com/i/${tagHash}.js`,
       dev: (tagHash) => `https://obs.dev.cheqzone.com/i/${tagHash}.js`,
       staging: (tagHash) => `https://obs.staging.cheqzone.com/i/${tagHash}.js`,
-      prod: (tagHash) => `https://obs.dev.cheqzone.com/i/${tagHash}.js`,
-      prodEU: (tagHash) => `https://obs.dev.cheqzone.com/i/${tagHash}.js`,
+      prod: (tagHash) => `https://ob.greencolumnhealth.com/i/${tagHash}.js`, // OR: obs.thisgreencolumn.com
+      prodEU: (tagHash) => {
+        return `https://obseu.togreencolumn.com/i/${tagHash}.js`
+      },
     }
 
     const cheqScriptTags = {
-      dev: [
+      local: [
+        // local
         // 50944 - 
-        // { src: urls.dev('a51530d3579a3fed99ab720dc3d77ba7'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_50944', dataJsonp: 'onCheqResponse' },
+        { src: urls[settings.env]('a51530d3579a3fed99ab720dc3d77ba7'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_50944', dataJsonp: 'onCheqResponse' },
         // 50676 - 
-        { src: urls.dev('f9c831aa63feccdde41de5fb3e9c9473'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_50676', dataJsonp: 'onCheqResponse' }
+        // { src: urls[settings.env]('f9c831aa63feccdde41de5fb3e9c9473'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_50676', dataJsonp: 'onCheqResponse' },
+        // 53286 - aac53e8440e8fe958f715edcfd650c26   - ami analytics network 920560
+        // { src: urls[settings.env]('aac53e8440e8fe958f715edcfd650c26'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_53286', dataJsonp: 'onCheqResponse' },
+        // 53285 - ami acquisition network 920559
+        // { src: urls[settings.env]('38533dd6514521f8548c1d0172050e1d'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_53285', dataJsonp: 'onCheqResponse' },
       ],
-      dev5: [
-        // dev 5 
-        // 50944 - 
-        { src: urls.dev5('a51530d3579a3fed99ab720dc3d77ba7'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_50944', dataJsonp: 'onCheqResponse' },
-        // 50676 - 
-        { src: urls.dev5('f9c831aa63feccdde41de5fb3e9c9473'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_50676', dataJsonp: 'onCheqResponse' },
+      get dev() {
+        return this.local
+      },
+      get dev5() {
+        return this.local
+      },
+      staging: [
+        // 51663
+        { src: urls[settings.env]('f1faa58e4690d8d0484616859212edc3'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_51663', dataJsonp: 'onCheqResponse' },
+        // ami-staging - 52002
+        // { src: urls[settings.env]('963547c3bc2594a9c654dfc3bc400662'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_52002', dataJsonp: 'onCheqResponse' },
       ],
-      staging: [],
-      prod: []
+      prod: [
+        // Ami - test - 77261
+        { src: urls[settings.env]('c83e653a8c4c9755f62cba8059215e8d'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_77261', dataJsonp: 'onCheqResponse' },
+      ],
+      get prodEU() {
+        return this.prod
+      }
     }
 
     const adobeTags =
@@ -241,6 +265,18 @@
           callback(null);
         }
       }
+    }
+    window.domU = {
+      _getCookie: function (name, doc) {
+        try {
+          doc = doc || DOC;
+          var match = doc.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+          if (match) return match[2];
+        } catch (e) {
+          debugger
+          return '';
+        }
+      },
     }
 
     if (settings.listenToEvents) {
