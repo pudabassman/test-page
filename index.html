@@ -1,0 +1,475 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test page</title>
+  <!-- <script src="./script.js"></script> -->
+  <script>
+    var DOC = document
+    var WINDOW = window
+
+    const settings = {
+      clearEverything: true,
+      assignUserVisitorId: true,
+      oneTimeEcid: true,
+      listenToEvents: true,
+      // spoofAiAgent: true, //Needs "rt": "x" in invocation_options - ct will be triggered as xhr and not embedded as script
+      scrollIntoView: false,
+      logDataLayer: true,
+      env: "local" // local | dev5 | dev | staging | prod | prodEU
+    }
+
+    //To mimic ai crawler change the user agent(f12 -> cmd+shift+p -> show network conditions):
+    /*
+      18 - search index - Currently i can't make this to work
+      19 - user triggered browsing - Claude-Web/1.0 (web crawler; +https://www.anthropic.com/; bots@anthropic.com) | Mozilla/5.0 (compatible; ImagesiftBot; +imagesift.com)
+      20 - training - Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.0; +https://openai.com/gptbot)
+     */
+
+    const eventsDictionary = {
+      local: ["javascript_variable_event", "local_storage_variable_event", "cookies_changed_event", "cheq_response"],
+      get dev5() {
+        return this.local
+      },
+      get dev() {
+        return this.local
+      },
+      staging: ["staging-test-event-data-layer", "staging-test-event-local-storage", "staging-test-event-javascript-variable", "staging-test-event-cookie", "cheq_response"],
+      prod: ["prod-test-general", "prod-test-event-data-layer", "prod-test-event-local-storage", "prod-test-event-javascript-variable", "prod-test-event-cookie", "cheq_response"],
+      get prodEU() {
+        return this.prod
+      }
+    }
+
+    const urls = {
+      local: (tagHash) => `http://localhost:8010/i/${tagHash}.js`,
+      dev5: (tagHash) => `https://obs.5.dev.cheqzone.com/i/${tagHash}.js`,
+      dev: (tagHash) => `https://obs.dev.cheqzone.com/i/${tagHash}.js`,
+      staging: (tagHash) => `https://obs.staging.cheqzone.com/i/${tagHash}.js`,
+      prod: (tagHash) => `https://ob.greencolumnhealth.com/i/${tagHash}.js`, // OR: obs.thisgreencolumn.com
+      prodEU: (tagHash) => {
+        return `https://obseu.togreencolumn.com/i/${tagHash}.js`
+      },
+    }
+
+    const cheqScriptTags = {
+      local: [
+        // local
+        // 50944 - 
+        { src: urls[settings.env]('a51530d3579a3fed99ab720dc3d77ba7'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_50944', dataJsonp: 'onCheqResponse' },
+        // 50676 - 
+        // { src: urls[settings.env]('f9c831aa63feccdde41de5fb3e9c9473'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_50676', dataJsonp: 'onCheqResponse' },
+        // 53286 - aac53e8440e8fe958f715edcfd650c26   - ami analytics network 920560
+        // { src: urls[settings.env]('aac53e8440e8fe958f715edcfd650c26'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_53286', dataJsonp: 'onCheqResponse' },
+        // 53285 - ami acquisition network 920559
+        // { src: urls[settings.env]('38533dd6514521f8548c1d0172050e1d'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_53285', dataJsonp: 'onCheqResponse' },
+      ],
+      get dev() {
+        return this.local
+      },
+      get dev5() {
+        return this.local
+      },
+      staging: [
+        // 51663
+        { src: urls[settings.env]('f1faa58e4690d8d0484616859212edc3'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_51663', dataJsonp: 'onCheqResponse' },
+        // ami-staging - 52002
+        // { src: urls[settings.env]('963547c3bc2594a9c654dfc3bc400662'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_52002', dataJsonp: 'onCheqResponse' },
+      ],
+      prod: [
+        // Ami - test - 77261
+        { src: urls[settings.env]('c83e653a8c4c9755f62cba8059215e8d'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_77261', dataJsonp: 'onCheqResponse' },
+      ],
+      get prodEU() {
+        return this.prod
+      }
+    }
+
+    const adobeTags =
+    {
+      dev: [
+        { src: 'https://assets.adobedtm.com/2273b6608699/a27fcd128879/launch-332f37c02845-development.min.js' }, //Adobe dev
+        // { src: 'https://assets.adobedtm.com/2273b6608699/2aa59a6f14de/launch-37368f7152db-development.min.js' }, //Adobe automation test
+      ]
+    }
+
+    const clearEverything = () => {
+      localStorage.clear()
+
+      addPreElement("Cleared local storage...", { color: 'purple' });
+
+      // Delete all cookies for the current domain and path
+      function deleteAllCookies() {
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+          const eqPos = cookie.indexOf('=');
+          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+          // Remove cookie for current path
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+          // Remove cookie for root path
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${location.hostname}`;
+        }
+        addPreElement("Deleted cookies...", { color: 'purple' });
+      };
+
+      deleteAllCookies();
+    }
+
+    const listenToEvents = () => {
+      if (!document.body) {
+        setTimeout(() => listenToEvents())
+        return
+      }
+      eventsDictionary[settings.env]
+        .forEach(item => document.body.addEventListener(item, ({ detail }) => addPreElement(`Event dispatched for item: ${item} with details: ${JSON.stringify(detail, null, 2)}`, { color: 'blue' })))
+    }
+
+    const addPreElement = (textContent, style, insertAtTop = false) => {
+      if (!document.body) {
+        setTimeout(() => addPreElement(textContent))
+        return
+      }
+      const pre = document.createElement('pre');
+      Object.entries({ fontSize: '16px', color: 'black', ...style }).forEach(([key, value]) => {
+        pre.style[key] = value
+      })
+      pre.textContent = textContent
+      if (insertAtTop && document.body.firstChild) {
+        document.body.insertBefore(pre, document.body.firstChild);
+      } else {
+        document.body.appendChild(pre);
+      }
+      if (settings.scrollIntoView) {
+        pre.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }
+
+    const assignUserVisitorId = () => {
+      if (!WINDOW["_cq"]) {
+        WINDOW["_cq"] = {}
+      }
+      WINDOW["_cq"].getUserVisitorId = () => 'Woo! some dev id!'
+
+      addPreElement('Assigned getUserVisitorId', { color: 'purple' })
+    }
+
+    window.util = {
+      _setTimeout: setTimeout
+    }
+    window.u = {
+      _isFunc: (unk) => typeof unk === 'function',
+      /**
+       * 
+       * @param {unknown} unk 
+       * @returns {boolean}
+       */
+      _isThenable: function (unk) {
+        return u._isObject(unk) && u._isFunc(unk.then)
+      },
+      /**
+       * 
+       * @param {unknown} unk 
+       * @returns {boolean}
+       */
+      _isCatchable: function (unk) {
+        return u._isObject(unk) && u._isFunc(unk.catch)
+      },
+      /**
+       * 
+       * @param {unknown} unk 
+       * @returns {boolean}
+       */
+      _isObject: function (unknown) {
+        return unknown && typeof unknown === 'object'
+      },
+      /**
+       * 
+       * @param {unknown} unk 
+       * @param {function} thenCallback 
+       * @param {(error: Error) => void} catchCallback
+       */
+      _executeAsyncIfPromiseLike: function (unk, thenCallback, catchCallback) {
+        if (!u._isObject(unk)) {
+          return
+        }
+
+        if (u._isFunc(catchCallback) && u._isCatchable(unk)) {
+          unk.catch(catchCallback);
+        }
+
+        if (u._isThenable(unk)) {
+          unk.then(function () {
+            thenCallback.apply(this, arguments);
+          })
+        }
+      },
+      _asPromiseLike: function (unk, thenCallback, catchCallback, fallBackCallback) {
+        var _resolved = false
+        if (u._isCatchable(unk)) {
+          unk.catch(catchCallback)
+        }
+        if (u._isThenable(unk)) {
+          unk.then(function () {
+            _resolved = true
+            thenCallback.apply(this, arguments)
+          })
+        } else {
+          fallBackCallback()
+        }
+        //If something fails internally and our callback haven't been called at least execute the default
+        setTimeout(function () {
+          if (!_resolved) {
+            fallBackCallback()
+            //Log here as well?
+          }
+        }, 500)
+      },
+      _getAdobeExperienceCloudId: function (callback) {
+        try {
+          var ecid;
+          // First attempt: VisitorAPI.js method
+          if (u._isFunc(WINDOW.Visitor) && u._isFunc(WINDOW.Visitor.getInstance)) {
+            var cookieMatch = DOC.cookie.match(/AMCV_([^=]+)%40AdobeOrg=/);
+            var orgId;
+            if (cookieMatch) {
+              orgId = cookieMatch[1] + '@AdobeOrg';
+            }
+            if (orgId) {
+              var visitor = Visitor.getInstance(orgId);
+              ecid = visitor && visitor._fields && visitor._fields.MCMID;
+              if (ecid) {
+                callback(ecid);
+                return;
+              }
+            }
+          }
+
+          // Fallback: Alloy Web SDK
+          if (!ecid && u._isFunc(WINDOW.alloy)) {
+            var adobeIdentityPromise = WINDOW.alloy('getIdentity');
+            if (u._isObject(adobeIdentityPromise)) {
+              var _then = function (result) {
+                if (result && result.identity) {
+                  ecid = result.identity.ECID;
+                }
+                callback(ecid);
+              };
+              u._executeAsyncIfPromiseLike(adobeIdentityPromise, _then);
+            }
+          } else {
+            callback(null);
+          }
+        } catch (e) {
+          callback(null);
+        }
+      }
+    }
+    window.domU = {
+      _getCookie: function (name, doc) {
+        try {
+          doc = doc || DOC;
+          var match = doc.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+          if (match) return match[2];
+        } catch (e) {
+          debugger
+          return '';
+        }
+      },
+    }
+
+    if (settings.listenToEvents) {
+      listenToEvents();
+    }
+
+    if (settings.clearEverything) {
+      clearEverything()
+    }
+
+    if (settings.assignUserVisitorId) {
+      assignUserVisitorId()
+    }
+
+    if (settings.oneTimeEcid) {
+      const events = [{ ecid: `One time dev ecid ${Date.now()}` }]
+      if (!window._cq) {
+        window._cq = { events }
+      }
+      else if (!window._cq.events) {
+        window._cq.events = events
+      }
+      else {
+        window._cq.events.push(...events)
+      }
+    }
+
+    if (settings.logDataLayer) {
+      let attempts = 0
+      const logDataLayerWhenReady = () => {
+        if (window.dataLayer) {
+          addPreElement(JSON.stringify({ "dataLayer": window.dataLayer }, null, 2), { color: 'purple' }, true);
+        } else if (attempts < 10) {
+          attempts++
+          setTimeout(logDataLayerWhenReady, 1000);
+        } else {
+          addPreElement(JSON.stringify({ "dataLayer": 'Not found,  🐛 ?' }, null, 2), { color: 'purple' }, true);
+        }
+      };
+      logDataLayerWhenReady();
+    }
+
+    const injectScriptToHead = ({ src, dataCh, className, dataJsonp, async = true }) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = async;
+      if (async) script.async = true;
+      if (dataCh) script.setAttribute('data-ch', dataCh);
+      if (className) script.className = className;
+      if (dataJsonp) script.setAttribute('data-jsonp', dataJsonp);
+      document.head.appendChild(script);
+    }
+
+    // Intercept XMLHttpRequest requests
+    (function () {
+      const originalOpen = XMLHttpRequest.prototype.open;
+      const originalSend = XMLHttpRequest.prototype.send;
+
+      XMLHttpRequest.prototype.open = function (method, url, async, user, password) {
+        this._interceptUrl = url;
+        return originalOpen.apply(this, arguments);
+      };
+
+      XMLHttpRequest.prototype.send = function (body) {
+        let parsedBody = body;
+        try {
+          if (typeof body === 'string') {
+            // Try JSON first
+            parsedBody = JSON.parse(body);
+          }
+        } catch (e) {
+          // If not JSON, try URL-encoded
+          try {
+            const params = new URLSearchParams(body);
+            const obj = {};
+            for (const [key, value] of params.entries()) {
+              obj[key] = value;
+            }
+            parsedBody = obj;
+          } catch (e2) {
+            // Leave as string if parsing fails
+            parsedBody = body;
+          }
+        }
+        if (this._interceptUrl && this._interceptUrl.match(/\/mon$|ct$/)) {
+          this.addEventListener('load', function () {
+            // Only intercept successful responses
+            if (this.status >= 200 && this.status < 300) {
+              const text = typeof parsedBody === 'object' ? JSON.stringify(parsedBody, null, 2) : parsedBody || '(empty)'
+              var formattedResponse = this.responseText
+              try {
+                formattedResponse = JSON.stringify(JSON.parse(this.responseText), null, 2);
+              } catch (e) {
+                // leave as string if not JSON
+              }
+              const textContent =
+                `Intercepted XHR payload from ${this._interceptUrl} responseText:\n "${formattedResponse}"\n` +
+                `Request Body:\n${text}'}`;
+              const styles = {}
+              if (text.includes('ecid')) {
+                styles.color = 'green'
+              }
+              addPreElement(textContent, styles)
+            }
+          });
+        }
+        if (settings.spoofAiAgent) {
+          //Needs "rt": "x" in invocation_options - ct will be triggered as xhr and not embedded as script
+          this.setRequestHeader('x-ai-agent', 'OpenAI-Operator');
+        }
+        return originalSend.apply(this, arguments);
+      };
+    })();
+
+    adobeTags[settings.env]?.forEach(item => injectScriptToHead(item))
+    cheqScriptTags[settings.env]?.forEach(item => injectScriptToHead(item))
+
+  </script>
+  <!-- Adobe -->
+  <!-- <script src="https://assets.adobedtm.com/2273b6608699/a27fcd128879/launch-332f37c02845-development.min.js"
+    async></script> -->
+
+  <!-- Adobe automation test -->
+  <!-- <script src="https://assets.adobedtm.com/2273b6608699/2aa59a6f14de/launch-37368f7152db-development.min.js"
+    async></script> -->
+
+  <!-- Dev -->
+  <!-- <script async src='https://obs.5.dev.cheqzone.com/i/a51530d3579a3fed99ab720dc3d77ba7.js' data-ch='Rules Engine Test'
+    class='ct_clicktrue_50944' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- <script async src='https://obs.5.dev.cheqzone.com/i/f9c831aa63feccdde41de5fb3e9c9473.js' data-ch='Rules Engine Test'
+    class='ct_clicktrue_50676' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- <script src='https://obs.dev.cheqzone.com/i/a51530d3579a3fed99ab720dc3d77ba7.js' data-ch='Rules Engine Test'
+    class='ct_clicktrue_50944' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- <script src='https://obs.dev.cheqzone.com/i/f9c831aa63feccdde41de5fb3e9c9473.js' data-ch='Rules Engine Test'
+    class='ct_clicktrue_50676' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- <script async src='https://obs.5.dev.cheqzone.com/i/127f0275061cf07c61977225eab3b35f.js' data-ch='Rules Engine Test'
+    class='ct_clicktrue_50986' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- ami all -->
+  <!-- <script async src='https://obs.dev.cheqzone.com/i/f9c831aa63feccdde41de5fb3e9c9473.js' data-ch='cheq4ppc'
+    class='ct_clicktrue_50676' data-jsonp="onCheqResponse">
+    </script> -->
+
+
+  <!--  Almog -->
+  <!-- <script async
+				src='https://obs.5.dev.cheqzone.com/i/fcedc22ea3ec6640568a4ef73832c4eb.js'
+				data-ch='cheq4ppc' class='ct_clicktrue_51400' >
+		</script> -->
+
+  <!-- Staging -->
+  <!-- <script async src='https://obs.staging.cheqzone.com/i/f1faa58e4690d8d0484616859212edc3.js' data-ch='Rules Engine Test'
+    class='ct_clicktrue_51663' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- Prod -->
+  <!-- Ami-test - 77261:cheq4ppc - 86811:test prod | 87053:Network 559746 - test-automation-bridge-connector-->
+  <!-- <script async src='https://ob.greencolumnhealth.com/i/c83e653a8c4c9755f62cba8059215e8d.js' data-ch='cheq4ppc'
+    class='ct_clicktrue_77261' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- <script async src='https://ob.greencolumnhealth.com/i/447fff9f606d4f44ef980e4efbd252d2.js' data-ch='cheq4ppc'
+    class='ct_clicktrue_86811' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- <script async src='https://ob.greencolumnhealth.com/i/ada194c93380bd427f8e80d9863819ee.js' data-ch='cheq4ppc'
+    class='ct_clicktrue_87053' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- <script async src='https://obs.thisgreencolumn.com/i/c83e653a8c4c9755f62cba8059215e8d.js' data-ch='Rules Engine Test'
+    class='ct_clicktrue_77261' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- <script async src='https://euob.togreencolumn.com/sxp/i/c83e653a8c4c9755f62cba8059215e8d.js' data-ch='cheq4ppc'
+    class='ct_clicktrue_77261' data-jsonp="onCheqResponse">
+    </script> -->
+
+  <!-- <script async
+				src='https://ob.greencolumnhealth.com/i/044d245cc849d4d078013ea7f2621a2e.js'
+				data-ch='cheq4ppc' class='ct_clicktrue_81166' data-jsonp="onCheqResponse">
+		</script> -->
+</head>
+
+<body style="font-size: 50px;color: red;">
+</body>
+
+</html>
