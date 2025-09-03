@@ -1,0 +1,27 @@
+{
+  "name": "serve-html",
+  "version": "1.0.0",
+  "description": "A basic Node.js and TypeScript server serving static HTML",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch server.ts --watch .",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "nodejs",
+    "typescript",
+    "server",
+    "static"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

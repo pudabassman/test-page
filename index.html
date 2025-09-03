@@ -15,10 +15,15 @@
       assignUserVisitorId: true,
       oneTimeEcid: true,
       listenToEvents: true,
-      // spoofAiAgent: true, //Needs "rt": "x" in invocation_options - ct will be triggered as xhr and not embedded as script
+      spoofAiAgent: true, //Needs "rt": "x" in invocation_options - ct will be triggered as xhr and not embedded as script
       scrollIntoView: false,
       logDataLayer: true,
-      env: "prodEU" // local | dev5 | dev | staging | prod | prodEU
+      env: (() => {
+        const pathSegments = window.location.pathname.split('/').filter(Boolean);
+        const lastSegment = pathSegments[pathSegments.length - 1];
+        const validEnvs = ['local', 'dev5', 'dev', 'staging', 'prod', 'prodEU'];
+        return validEnvs.includes(lastSegment) ? lastSegment : "dev5"; // fallback to dev5 if not valid
+      })() // local | dev5 | dev | staging | prod | prodEU
     }
 
     //To mimic ai crawler change the user agent(f12 -> cmd+shift+p -> show network conditions):
@@ -74,13 +79,17 @@
       },
       staging: [
         // 51663
-        { src: urls[settings.env]('f1faa58e4690d8d0484616859212edc3'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_51663', dataJsonp: 'onCheqResponse' },
+        // { src: urls[settings.env]('f1faa58e4690d8d0484616859212edc3'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_51663', dataJsonp: 'onCheqResponse' },
         // ami-staging - 52002
-        // { src: urls[settings.env]('963547c3bc2594a9c654dfc3bc400662'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_52002', dataJsonp: 'onCheqResponse' },
+        { src: urls[settings.env]('963547c3bc2594a9c654dfc3bc400662'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_52002', dataJsonp: 'onCheqResponse' },
       ],
       prod: [
         // Ami - test - 77261
         { src: urls[settings.env]('c83e653a8c4c9755f62cba8059215e8d'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_77261', dataJsonp: 'onCheqResponse' },
+        // ami-analytics - network - 562374 | tags: [ami-analytics: 90047]
+        // { src: urls[settings.env]('c0f80588df7256535ac113f67d9f157a'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_90047', dataJsonp: 'onCheqResponse' },
+        // ami-acquisition - network - 562375 | tags: [ami-acquisition: ]
+        // { src: urls[settings.env]('9403986cbf61a266211b1d80a2e39977'), dataCh: 'Rules Engine Test', className: 'ct_clicktrue_90048', dataJsonp: 'onCheqResponse' },
       ],
       get prodEU() {
         return this.prod
