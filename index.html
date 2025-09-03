@@ -18,11 +18,7 @@
       // spoofAiAgent: true, //Needs "rt": "x" in invocation_options - ct will be triggered as xhr and not embedded as script
       scrollIntoView: false,
       logDataLayer: true,
-      env: (() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const firstParam = urlParams.values().next().value;
-        return firstParam || "dev5"; // fallback to dev5 if no query params
-      })() // local | dev5 | dev | staging | prod | prodEU
+      env: "prodEU" // local | dev5 | dev | staging | prod | prodEU
     }
 
     //To mimic ai crawler change the user agent(f12 -> cmd+shift+p -> show network conditions):
