@@ -20,7 +20,7 @@
       logDataLayer: true,
       env: (() => {
         const urlParams = new URLSearchParams(window.location.search);
-        const firstParam = urlParams.keys().next().value;
+        const firstParam = urlParams.values().next().value;
         return firstParam || "dev5"; // fallback to dev5 if no query params
       })() // local | dev5 | dev | staging | prod | prodEU
     }
