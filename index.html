@@ -22,7 +22,7 @@
         const pathSegments = window.location.pathname.split('/').filter(Boolean);
         const lastSegment = pathSegments[pathSegments.length - 1];
         const validEnvs = ['local', 'dev5', 'dev', 'staging', 'prod', 'prodEU'];
-        return validEnvs.includes(lastSegment) ? lastSegment : "dev5"; // fallback to dev5 if not valid
+        return validEnvs.includes(lastSegment) ? lastSegment : "prod"; // fallback to dev5 if not valid
       })() // local | dev5 | dev | staging | prod | prodEU
     }
 
